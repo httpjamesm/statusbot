@@ -5,14 +5,10 @@ from discord.ext import commands
 import settings
 
 intents = discord.Intents.default()
-intents.members = True
 intents.messages = True
-intents.reactions = True
 
 bot = commands.Bot(command_prefix=settings.configdata["prefix"],intents=intents)
 bot.remove_command('help')
-bot.launch_time = datetime.datetime.now()
-print("[Start] Launch time defined")
 
 initial_extensions = [
     'cogs.pinger',
