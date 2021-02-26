@@ -16,7 +16,8 @@ print("[Start] Launch time defined")
 
 initial_extensions = [
     'cogs.pinger',
-    'cogs.host_management'
+    'cogs.host_management',
+    'cogs.info'
 ]
 
 if __name__ == '__main__':
@@ -38,7 +39,7 @@ async def on_ready():
     print('[INFO] Logged in')
     print("[INFO] Username:",bot.user)
     print("[INFO] User ID:",bot.user.id)
-    await bot.change_presence(activity=discord.Game(name="sb?help"))
+    await bot.change_presence(activity=discord.Game(name=settings.configdata["prefix"] + "help"))
     print("[Start] Presence changed")
 
 bot.run(settings.configdata["token"])

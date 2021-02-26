@@ -10,7 +10,7 @@ class pinger(commands.Cog):
         self.pinghost.start()
         # Re-define the bot object into the class.
 
-    @tasks.loop(seconds=5)
+    @tasks.loop(seconds=60)
     async def pinghost(self):
         doc = settings.col.find()
         for x in doc:
