@@ -9,7 +9,7 @@ StatusBot is a Discord bot that will consistently ping a desired website or IP a
 In order to run StatusBot you'll need a server with the following:
 
 - Python 3.0 or higher
-- The following modules: discord, asyncio, pymongo, pingparsing
+- The following modules: discord, asyncio, pymongo, pingparsing, requests-async
 - A MongoDB Community Server
 - A Discord bot token
 - An IQ of 5 or higher
