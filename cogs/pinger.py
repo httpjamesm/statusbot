@@ -3,7 +3,10 @@ import requests_async as requests
 from datetime import datetime
 from discord.ext import commands,tasks
 from textwrap import dedent
+
+# Files
 import settings
+import util.ip_check
 
 class pinger(commands.Cog):
     def __init__(self,bot):
@@ -12,6 +15,7 @@ class pinger(commands.Cog):
         # Re-define the bot object into the class.
 
     parser = pingparsing.PingParsing() # Define the ping parser function
+    successcodes = ["2","3","C","N"]
 
     @tasks.loop(seconds=30)
     async def pinghost(self):
@@ -35,11 +39,15 @@ class pinger(commands.Cog):
             stats = json.loads(stats) # Convert the JSON dictionary to a real JSON dictionary
 
             # HTTP Code
-            try:
-                request_data = await requests.get("https://" + x["host"],timeout=8,verify=False)
-                httpcode = str(request_data.status_code)
-            except:
-                httpcode = "Could not be retrieved"
+            # Only checks the HTTP code if the host is NOT an IP address.
+            if util.ip_check.is_ip(x["host"]) == False:
+                try:
+                    request_data = await requests.get("https://" + x["host"],timeout=8,verify=False)
+                    httpcode = str(request_data.status_code)
+                except:
+                    httpcode = "Could not be retrieved"
+            else:
+                httpcode = "Not Applicable"
 
             try:
                 # Try to get the monitor message's channel and message
@@ -63,27 +71,25 @@ class pinger(commands.Cog):
                 embed.set_thumbnail(url="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Antu_dialog-error.svg/1024px-Antu_dialog-error.svg.png")
                 embed.add_field(name="Details", value="Ping to **" + hostname + "**: Error\nHTTP Code: " + httpcode, inline=True)
 
-            # If the server is online, the ping is not abnormally high and the HTTP code is not in successcodes
-            elif (stats["rtt_avg"] > 0) and (stats["rtt_avg"] < x["calibration_result"]+50) and (list(httpcode)[0] in ["2","3","C"]): 
+            # If the server is online, the ping is not abnormally high and the HTTP code is in successcodes
+            elif (stats["rtt_avg"] > 0) and (stats["rtt_avg"] < x["calibration_result"]+50) and (list(httpcode)[0] in self.successcodes): 
                 embed=discord.Embed(title=hostname + " is online.", description="The host is online and reachable.", color=0x00b900)
                 embed.set_thumbnail(url="http://www.clker.com/cliparts/f/O/f/X/U/r/check-mark-button-hi.png")
                 embed.add_field(name="Details", value="Ping to **" + hostname + "**: " + str(stats["rtt_avg"]) + " ms\nHTTP Code: " + httpcode, inline=True)
 
 
             # If the ping is abnormally high and the HTTP code is not in successcodes
-            elif (stats["rtt_avg"] > x["calibration_result"]+50) and (list(httpcode)[0] in ["2","3","C"]): 
+            elif (stats["rtt_avg"] > x["calibration_result"]+50) and (list(httpcode)[0] in self.successcodes): 
                 embed=discord.Embed(title=hostname + " is experiencing degraded performance.", description="The host is online and reachable, but its response time is abnormally high. Users may experience degraded performance.", color=0xff8040)
                 embed.set_thumbnail(url="https://www.clker.com/cliparts/P/z/K/L/2/8/yellow-warning-md.png")
                 embed.add_field(name="Details", value="Ping to **" + hostname + "**: " + str(stats["rtt_avg"]) + " ms\n" + "Calibration Result: " + str(x["calibration_result"]) + " ms\nHTTP Code: " + httpcode, inline=True)
             
             # If the server is online but the HTTP code is not in successcodes
-            elif (stats["rtt_avg"] > 0) and (list(httpcode)[0] not in ["2","3","C"]):
+            elif (stats["rtt_avg"] > 0) and (list(httpcode)[0] not in self.successcodes):
                 embed=discord.Embed(title=hostname + " is having issues.", description="The host is responding, but the server is outputting error codes.", color=0xFFFF00)
                 embed.set_thumbnail(url="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Antu_dialog-error.svg/1024px-Antu_dialog-error.svg.png")
                 embed.add_field(name="Details", value="Ping to **" + hostname + "**: " + str(stats["rtt_avg"]) + " ms\nHTTP Code: " + httpcode, inline=True)
             
-            #elif (stats["rtt_avg"] > x["calibration_result"]+50) and (list(httpcode)[0] in ["2","3"]):
-
             # Failsafe
             else:
                 print("[ERROR] Unhandled situation.")
