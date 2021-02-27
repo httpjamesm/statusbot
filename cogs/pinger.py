@@ -13,7 +13,7 @@ class pinger(commands.Cog):
 
     parser = pingparsing.PingParsing() # Define the ping parser function
 
-    @tasks.loop(seconds=10)
+    @tasks.loop(seconds=30)
     async def pinghost(self):
         # This will continuously ping all the hosts and update status muessages.
         doc = settings.col.find() # Find all host entries.

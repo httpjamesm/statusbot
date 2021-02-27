@@ -43,7 +43,9 @@ class host_management(commands.Cog):
             "serverid":ctx.guild.id,
             "host":host,
             "timestamp":datetime.datetime.now(),
-            "calibration_result":stats["rtt_avg"]
+            "calibration_result":stats["rtt_avg"],
+            "monitor_chan_id":None,
+            "monitor_msg_id":None
         })
         await mainmsg.edit(content=":white_check_mark: Monitor successfully added for host **" + host + "**. Use `" + settings.configdata["prefix"] + "msg <#channel> " + host + "` to proceed.")
     
@@ -71,6 +73,7 @@ class host_management(commands.Cog):
         })
             await ctx.send(f"{ctx.author.mention} :white_check_mark: Successfully edited host.")
             return
+        await ctx.send(":warning: This host isn't being monitored.")
 
     @commands.command(aliases=["control","recalibrate"])
     @commands.has_permissions(manage_guild=True)
@@ -118,7 +121,6 @@ class host_management(commands.Cog):
             # Check if the user input a text channel and host.
             await ctx.send(":warning: You must input a valid text channel and/or host!")
             return
-        print("valid host and channel provided")
         # Check to see if the requested host has been added to the db.
         doc = settings.col.find({
             "serverid":ctx.guild.id,
@@ -126,20 +128,11 @@ class host_management(commands.Cog):
         })
         for x in doc:
             # If there's a result in the search:
-            try:
-                test = x["calibration_result"] # Test to see if the monitor has a calibration result stored
-            except:
-                # If no calibration result was found, abort and tell the user.
-                await ctx.send(":warning: You must use `" + settings.configdata["prefix"] + "calibrate <host>` before setting up a monitor message!")
-                return
-            try:
-                # If there's an alias, set the host name to the alias.
-                host = x["alias"]
-            except:
-                host = host
-
             # Create the "new monitor" embed object
-            embed=discord.Embed(title="Monitor Message for " + host, description="This monitor message has just been setup. Status updates will begin momentarily.", color=0xebebeb)
+            try:
+                embed=discord.Embed(title="Monitor Message for " + x["alias"], description="This monitor message has just been setup. Status updates will begin momentarily.", color=0xebebeb)
+            except:
+                embed=discord.Embed(title="Monitor Message for " + host, description="This monitor message has just been setup. Status updates will begin momentarily.", color=0xebebeb)
             embed.add_field(name="Unknown", value="Unknown", inline=True)
             embed.set_footer(text="Made by http.james#6969")
             try:
@@ -195,7 +188,10 @@ class host_management(commands.Cog):
         hostlist = []
         counter = 1
         for x in doc:
-            hostlist.append(str(counter) + ". " + x["host"])
+            try:
+                hostlist.append(str(counter) + ". " + x["alias"])
+            except:
+                hostlist.append(str(counter) + ". " + x["host"])
             counter += 1
         hostlist = '\n'.join(hostlist)
         if len(hostlist) > 1023:
@@ -205,7 +201,34 @@ class host_management(commands.Cog):
         embed.add_field(name="Hosts", value=hostlist, inline=False)
         embed.set_footer(text="Made by http.james#6969")
         await ctx.send(embed=embed,delete_after=300)
-    
+
+    @commands.command()
+    @commands.has_permissions(manage_guild=True)
+    async def unhide(self,ctx,host=None):
+        if host == None:
+            # Check if the user input a host.
+            await ctx.send(":warning: You must input a valid host!")
+            return
+        
+        # Check to see if the requested host has been added to the db.
+        doc = settings.col.find({
+            "serverid":ctx.guild.id,
+            "host":host
+        })
+        for x in doc:
+            settings.col.update_many({
+                "serverid":ctx.guild.id,
+                "host":host
+            },{
+                "$unset":{
+                    "alias":""
+                }
+            }
+            )
+            await ctx.send(":white_check_mark: True host has been set to **Visible**.")
+            return
+        await ctx.send(":warning: This host isn't being monitored.")
+
     @commands.command(aliases=["alias"])
     @commands.has_permissions(manage_guild=True)
     async def hide(self,ctx,host=None,alias=None):
