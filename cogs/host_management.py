@@ -256,12 +256,5 @@ class host_management(commands.Cog):
             return
         await ctx.send(":warning: This host isn't being monitored.")
 
-    @commands.command()
-    async def viewdb(self,ctx):
-        doc = settings.col.find()
-        for x in doc:
-            await ctx.send(x)
-
-
 def setup(bot):
     bot.add_cog(host_management(bot))
