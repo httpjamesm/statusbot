@@ -8,6 +8,7 @@ class host_management(commands.Cog):
     def __init__(self,bot):
         self.bot = bot
         # Re-define the bot object into the class.
+
     parser = pingparsing.PingParsing() # Define the ping parser function
 
     @commands.command(aliases=["newhost"])
@@ -16,6 +17,11 @@ class host_management(commands.Cog):
         if host == None:
             # Check if the user input a host.
             await ctx.send(":warning: You must input a valid host!")
+            return
+
+        if (settings.col.count_documents({"serverid":ctx.guild.id}) >= settings.configdata["host_limit"]):
+            # If a server tries to add more hosts than the instance allows, abort and tell the user.
+            await ctx.send(":x: You have reached the host limit. Consider deleting one before adding a new one.")
             return
 
         if "://" in host:
@@ -113,7 +119,6 @@ class host_management(commands.Cog):
         # If there's no result in the search, abort and tell the user.
         await ctx.send(":warning: This host isn't being monitored!")
 
-
     @commands.command(aliases=["msg"])
     @commands.has_permissions(manage_guild=True)
     async def statusmsg(self,ctx,channel: discord.TextChannel = None,host=None):
@@ -182,6 +187,7 @@ class host_management(commands.Cog):
     @commands.command(aliases=["list","hostlist"])
     @commands.cooldown(1,10,commands.BucketType.guild)
     async def monitorlist(self,ctx):
+        # Displays all the hosts being monitored in the server.
         doc = settings.col.find({
             "serverid":ctx.guild.id,
         })
@@ -195,7 +201,9 @@ class host_management(commands.Cog):
             counter += 1
         hostlist = '\n'.join(hostlist)
         if len(hostlist) > 1023:
+            # If the host list is too long to display in an embed field, abort.
             hostlist = "Too many to display. Consider removing some."
+            return
         embed=discord.Embed(title="List of Current Monitors", description=f"Here are all hosts being monitored in **{ctx.guild.name}**.", color=0x8080c0)
         embed.set_thumbnail(url=f"{ctx.guild.icon_url}")
         embed.add_field(name="Hosts", value=hostlist, inline=False)
@@ -216,6 +224,7 @@ class host_management(commands.Cog):
             "host":host
         })
         for x in doc:
+            # If the requested host is in the db, remove the alias.
             settings.col.update_many({
                 "serverid":ctx.guild.id,
                 "host":host
@@ -243,6 +252,7 @@ class host_management(commands.Cog):
             "host":host
         })
         for x in doc:
+            # If the requested host is in the db, add the desired alias.
             settings.col.update_many({
                 "serverid":ctx.guild.id,
                 "host":host
