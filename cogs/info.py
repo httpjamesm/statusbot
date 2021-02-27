@@ -10,8 +10,9 @@ class info(commands.Cog):
     @commands.command(aliases=["about","info"])
     async def help(self,ctx):
         embed=discord.Embed(title="StatusBot Help", description="StatusBot is a Discord bot that can create real-time status pages within Discord communities for any host that supports IPv4 connectivity.\n\nYou can invoke this menu at anytime using `" + settings.configdata["prefix"] + "help`.", color=0xff0000)
-        embed.add_field(name="Instance", value="**Name**: " + settings.configdata["instance_name"], inline=False)
-        embed.add_field(name="Host Management", value="Use **" + settings.configdata["prefix"] + "** as the prefix for the following commands.\n\n`newhost <host>` - Create a new host monitor.\n`calibrate <host>` - Calibrate the baseline ping for your host.\n`msg <#channel> <host>` - Setup a monitor/status message.", inline=True)
+        embed.add_field(name="Instance", value="**Name**: " + settings.configdata["instance_name"] + "\nMonitor Limit: " + str(settings.configdata["host_limit"]), inline=False)
+        embed.add_field(name="Host Management", value="Use **" + settings.configdata["prefix"] + "** as the prefix for the following commands.\n\n`newhost <host>` - Create a new host monitor.\n`calibrate <host>` - Re-calibrate the baseline ping for your host.\n`msg <#channel> <host>` - Setup a monitor/status message.\n`edit <host> <new host>` - Edit an existing host.\n`hide <host> <alias>` - Hide the host's true identity with an alias. Useful for hiding internal IPs.\n`stop <host>` - Delete a host.", inline=True)
+        embed.add_field(name="Developers", value="Are you a developer? You can improve this project at the official Github page:\nhttps://github.com/httpjamesm/statusbot",inline=False)
         embed.set_footer(text="Made by http.james#6969")
         try:
             await ctx.author.send(embed=embed)

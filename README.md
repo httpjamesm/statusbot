@@ -28,7 +28,7 @@ Create a new file in StatusBot's directory called "config.json" (case-sensitive)
     "prefix":"<prefix>",
     "mongo_url":"<MongoDB URL>",
     "instance_name":"<name>",
-    "host_limit":"<num>"
+    "host_limit":<int>
 }
 ```
 
