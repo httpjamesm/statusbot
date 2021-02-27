@@ -14,6 +14,11 @@ class listeners(commands.Cog):
         print("[INFO] User ID:",self.bot.user.id)
         await self.bot.change_presence(activity=discord.Game(name=settings.configdata["prefix"] + "help"))
         print("[Start] Presence updated")
+    
+    @commands.Cog.listener('on_message')
+    async def on_message(self,message):
+        if self.bot.user in message.mentions:
+            await message.channel.send(f":wave: Hi **{message.author.display_name}**! My command prefix is **" + settings.configdata["prefix"] + "**. Use **" + settings.configdata["prefix"] + "help** for usage details.")
 
 def setup(bot):
     bot.add_cog(listeners(bot))
