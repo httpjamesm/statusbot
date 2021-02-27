@@ -18,6 +18,10 @@ class host_management(commands.Cog):
             await ctx.send(":warning: You must input a valid host!")
             return
 
+        if "://" in host:
+            await ctx.send(f"{ctx.author.mention} :warning: Don't specify the HTTP protocol in your host. Please only use the domain or the IP address.")
+            return
+
         # Check to see if the requested host is not a duplicate.
         doc = settings.col.find({
             "serverid":ctx.guild.id,
@@ -27,15 +31,48 @@ class host_management(commands.Cog):
             # If there's a result in the search:
             await ctx.send(":warning: You already have a monitor setup for this host!")
             return
+        mainmsg = await ctx.send("<a:loading:815077867176067072> Calibration has started for **" + host + "**. Please wait...")
+        out = subprocess.Popen(['ping','-4',host,'-c','3'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT) # Ping the host 10 times
+        stdout,stderr = out.communicate() # Store the output in a var
+        normal = stdout.decode('utf-8') # Decode the byte object to UTF-8
+        stats = self.parser.parse(dedent(normal)) # Get pingparser to parse the output into stats
+        stats = json.dumps(stats.as_dict(), indent=4) # Convert the stats object to a JSON dictionary
+        stats = json.loads(stats) # Load the JSON dictionary to an actual dictionary
         # If there's no result in the search, add a monitor to the db.
         settings.col.insert_one({
             "serverid":ctx.guild.id,
             "host":host,
-            "timestamp":datetime.datetime.now()
+            "timestamp":datetime.datetime.now(),
+            "calibration_result":stats["rtt_avg"]
         })
-        await ctx.send(":white_check_mark: Monitor successfully added for host **" + host + "**.")
+        await mainmsg.edit(content=":white_check_mark: Monitor successfully added for host **" + host + "**. Use `" + settings.configdata["prefix"] + "msg <#channel> " + host + "` to proceed.")
+    
+    @commands.command(aliases=["edit","editmonitor"])
+    @commands.has_permissions(manage_guild=True)
+    async def edithost(self,ctx,host=None,newhost=None):
+        if host == None or newhost == None:
+            # Check if the user input a host.
+            await ctx.send(":warning: You must input valid hosts!")
+            return
+        # Check to see if the requested host is in the db.
+        doc = settings.col.find({
+            "serverid":ctx.guild.id,
+            "host":host
+        })
+        for x in doc:
+            # If there's a result in the search:
+            settings.col.update_many({
+            "serverid":ctx.guild.id,
+            "host":host
+        },{
+            "$set":{
+                "host":newhost
+            }
+        })
+            await ctx.send(f"{ctx.author.mention} :white_check_mark: Successfully edited host.")
+            return
 
-    @commands.command(aliases=["control"])
+    @commands.command(aliases=["control","recalibrate"])
     @commands.has_permissions(manage_guild=True)
     async def calibrate(self,ctx,host=None):
         if host == None:
@@ -50,15 +87,15 @@ class host_management(commands.Cog):
         })
         for x in doc:
             # If there's a result in the search, begin calibration.
-            mainmsg = await ctx.send("Calibration has started for **" + host + "**. Please wait...")
-            out = subprocess.Popen(['ping','-4',host,'-c','10'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT) # Ping the host 10 times
+            mainmsg = await ctx.send("<a:loading:815077867176067072> Re-calibration has started for **" + host + "**. Please wait...")
+            out = subprocess.Popen(['ping','-4',host,'-c','3'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT) # Ping the host 10 times
             stdout,stderr = out.communicate() # Store the output in a var
             normal = stdout.decode('utf-8') # Decode the byte object to UTF-8
             stats = self.parser.parse(dedent(normal)) # Get pingparser to parse the output into stats
             stats = json.dumps(stats.as_dict(), indent=4) # Convert the stats object to a JSON dictionary
             stats = json.loads(stats) # Load the JSON dictionary to an actual dictionary
             # Update the monitor's info in the db with the average ping (calibration result)
-            settings.col.update_one(
+            settings.col.update_many(
                 {
                     "serverid":ctx.guild.id,
                     "host":host
@@ -81,7 +118,7 @@ class host_management(commands.Cog):
             # Check if the user input a text channel and host.
             await ctx.send(":warning: You must input a valid text channel and/or host!")
             return
-
+        print("valid host and channel provided")
         # Check to see if the requested host has been added to the db.
         doc = settings.col.find({
             "serverid":ctx.guild.id,
@@ -95,6 +132,12 @@ class host_management(commands.Cog):
                 # If no calibration result was found, abort and tell the user.
                 await ctx.send(":warning: You must use `" + settings.configdata["prefix"] + "calibrate <host>` before setting up a monitor message!")
                 return
+            try:
+                # If there's an alias, set the host name to the alias.
+                host = x["alias"]
+            except:
+                host = host
+
             # Create the "new monitor" embed object
             embed=discord.Embed(title="Monitor Message for " + host, description="This monitor message has just been setup. Status updates will begin momentarily.", color=0xebebeb)
             embed.add_field(name="Unknown", value="Unknown", inline=True)
@@ -107,18 +150,95 @@ class host_management(commands.Cog):
                 await ctx.send(":warning: I couldn't send a message in your specified channel. Do I have the correct permissions?")
                 return
             # If the message was sent successfully, store the message details to refer to it later.
-            settings.col.update_one(
-                                {
-                    "serverid":ctx.guild.id,
-                    "host":host
-                },{
-                    "$set":{
-                        "monitor_chan_id":channel.id,
-                        "monitor_msg_id":monitor_msg.id
-                    }
-                }
-            )
+            newvalues = {"$set":{"monitor_chan_id":channel.id,"monitor_msg_id":monitor_msg.id}}
+            settings.col.update_many({"serverid":ctx.guild.id,"host":host},newvalues)
+            await asyncio.sleep(5)
             await ctx.send(f"{ctx.author.mention} :white_check_mark: Monitor message successfully setup. If the host status shows up as \"Unknown\", just wait a few moments.")
+
+    @commands.command(aliases=["stop","deletemonitor","remove"])
+    @commands.has_permissions(manage_guild=True)
+    async def stopmonitor(self,ctx,host=None):
+        if host == None:
+            # Check if the user input a host.
+            await ctx.send(":warning: You must input a valid host!")
+            return
+
+        # Check to see if the requested host has been added to the db.
+        doc = settings.col.find({
+            "serverid":ctx.guild.id,
+            "host":host
+        })
+
+        for x in doc:
+            settings.col.delete_one({
+                "serverid":ctx.guild.id,
+                "host":host
+            })
+            await ctx.send(f"{ctx.author.mention} :white_check_mark: Successfully stopped your monitor (50%).")
+            try:
+                # Try to get the monitor message's channel and message
+                channel = self.bot.get_channel(x["monitor_chan_id"])
+                msg = await channel.fetch_message(x["monitor_msg_id"])
+            except:
+                # If it errors, abort and tell the user.
+                await ctx.send(":x: I couldn't delete the monitor message. Do I still have access to the channel?\n\nThe monitor has been stopped regardless.")
+                return
+            await msg.delete()
+            await ctx.send(f"{ctx.author.mention} :white_check_mark: Successfully deleted your monitor and stopped it (100%).")
+
+    @commands.command(aliases=["list","hostlist"])
+    @commands.cooldown(1,10,commands.BucketType.guild)
+    async def monitorlist(self,ctx):
+        doc = settings.col.find({
+            "serverid":ctx.guild.id,
+        })
+        hostlist = []
+        counter = 1
+        for x in doc:
+            hostlist.append(str(counter) + ". " + x["host"])
+            counter += 1
+        hostlist = '\n'.join(hostlist)
+        if len(hostlist) > 1023:
+            hostlist = "Too many to display. Consider removing some."
+        embed=discord.Embed(title="List of Current Monitors", description=f"Here are all hosts being monitored in **{ctx.guild.name}**.", color=0x8080c0)
+        embed.set_thumbnail(url=f"{ctx.guild.icon_url}")
+        embed.add_field(name="Hosts", value=hostlist, inline=False)
+        embed.set_footer(text="Made by http.james#6969")
+        await ctx.send(embed=embed,delete_after=300)
+    
+    @commands.command(aliases=["alias"])
+    @commands.has_permissions(manage_guild=True)
+    async def hide(self,ctx,host=None,alias=None):
+        if host == None or alias == None:
+            # Check if the user input a host.
+            await ctx.send(":warning: You must input a valid host!")
+            return
+        
+        # Check to see if the requested host has been added to the db.
+        doc = settings.col.find({
+            "serverid":ctx.guild.id,
+            "host":host
+        })
+        for x in doc:
+            settings.col.update_many({
+                "serverid":ctx.guild.id,
+                "host":host
+            },{
+                "$set":{
+                    "alias":alias
+                }
+            }
+            )
+            await ctx.send(":white_check_mark: True host has been set to **Hidden**. The alias has been set to **" + alias + "**.")
+            return
+        await ctx.send(":warning: This host isn't being monitored.")
+
+    @commands.command()
+    async def viewdb(self,ctx):
+        doc = settings.col.find()
+        for x in doc:
+            await ctx.send(x)
+
 
 def setup(bot):
     bot.add_cog(host_management(bot))

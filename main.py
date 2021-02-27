@@ -13,7 +13,8 @@ bot.remove_command('help')
 initial_extensions = [
     'cogs.pinger',
     'cogs.host_management',
-    'cogs.info'
+    'cogs.info',
+    'cogs.listeners'
 ]
 
 if __name__ == '__main__':
@@ -29,13 +30,5 @@ if __name__ == '__main__':
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
-
-@bot.event
-async def on_ready():
-    print('[INFO] Logged in')
-    print("[INFO] Username:",bot.user)
-    print("[INFO] User ID:",bot.user.id)
-    await bot.change_presence(activity=discord.Game(name=settings.configdata["prefix"] + "help"))
-    print("[Start] Presence changed")
 
 bot.run(settings.configdata["token"])
