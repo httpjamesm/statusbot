@@ -183,6 +183,7 @@ class host_management(commands.Cog):
                 return
             await msg.delete()
             await ctx.send(f"{ctx.author.mention} :white_check_mark: Successfully deleted your monitor and stopped it (100%).")
+            return
         await ctx.send(":warning: This host isn't being monitored.")
 
     @commands.command(aliases=["list","hostlist"])
